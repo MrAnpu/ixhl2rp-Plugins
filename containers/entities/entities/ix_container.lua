@@ -80,10 +80,8 @@ if (SERVER) then
 				-- Correctly iterate over all items in the inventory
 				for _, item in pairs(inventory:GetItems()) do
 					local curInv = ix.item.inventories[item.invID or 0]
-					print("Container item drop")
 					-- Ensure 'item' is treated as an item object
 					if (item) then
-						print("Container item drop2")
 						if self:GetModel() == "models/Items/item_item_crate.mdl" then
 						item:Spawn( self:GetPos() + self:GetUp() * (self:OBBMaxs()/2), self:GetAngles())
 						else
