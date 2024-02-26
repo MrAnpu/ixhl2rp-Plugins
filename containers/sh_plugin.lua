@@ -54,6 +54,18 @@ if (SERVER) then
 		end
 	end
 
+	function PLUGIN:OnEntityCreated(entity)
+		if (entity:GetClass() == "ix_item") then
+			entity:SetCustomCollisionCheck(true)
+		end
+	end
+	
+	function PLUGIN:ShouldCollide(ent1, ent2)
+		if (ent1:GetClass() == "ix_item" and ent2:GetClass() == "ix_item") then
+			return false
+		end
+	end
+	
 	function PLUGIN:CanSaveContainer(entity, inventory)
 		return ix.config.Get("containerSave", true)
 	end
