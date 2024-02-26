@@ -83,9 +83,9 @@ if (SERVER) then
 					-- Ensure 'item' is treated as an item object
 					if (item) then
 						if self:GetModel() == "models/Items/item_item_crate.mdl" then
-						item:Spawn( self:GetPos() + self:GetUp() * (self:OBBMaxs()/2), self:GetAngles())
+							item:Spawn( self:GetPos() + (self:GetForward() * math.Rand(self:OBBMins(), self:OBBMaxs())) + self:GetRight() * math.Rand(self:OBBMins(), self:OBBMaxs()) + self:GetUp() * (self:OBBMaxs()/2), self:GetAngles())
 						else
-							item:Spawn(self:GetPos())
+							item:Spawn(self:GetPos() + (self:GetForward() * math.Rand(self:OBBMins(), self:OBBMaxs())) + self:GetRight() * math.Rand(self:OBBMins(), self:OBBMaxs()), self:GetAngles())
 						end
 
 						-- we are transferring this item from an inventory to the world
