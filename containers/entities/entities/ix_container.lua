@@ -44,7 +44,7 @@ if (SERVER) then
 
 			if (self:Health() <= 0) then
 				self:GibBreakServer(Vector(0, 0, 0))
-				self:EmitSound("physics/wood/wood_plank_break"..math.random(2, 4)..".wav", 70, 100, 1, CHAN_AUTO)
+				self:EmitSound(table.Random(definition.breaksounds), 70, 100, 1, CHAN_AUTO)
 				local radius = 50 -- Effect radius
 				local force = 200 -- Force magnitude
 
