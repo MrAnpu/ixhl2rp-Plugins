@@ -6,6 +6,9 @@
 		height = 4,
 		breakable = true,
 		health = 100,
+		breaksounds = {
+			"sound_path",
+		},
 		locksound = "",
 		opensound = ""
 	})
@@ -18,6 +21,11 @@ ix.container.Register("models/props_junk/wood_crate001a.mdl", {
 	height = 6,
 	breakable = true,
 	health = 100,
+	breaksounds = {
+		"physics/wood/wood_plank_break2.wav",
+		"physics/wood/wood_plank_break3.wav",
+		"physics/wood/wood_plank_break4.wav",
+	},
 })
 
 ix.container.Register("models/props_c17/lockers001a.mdl", {
@@ -133,7 +141,12 @@ ix.container.Register("models/Items/item_item_crate.mdl", {
 	width = 6,
 	height = 5,
 	breakable = true,
-	health = 100
+	health = 100,
+	breaksounds = {
+		"physics/wood/wood_plank_break2.wav",
+		"physics/wood/wood_plank_break3.wav",
+		"physics/wood/wood_plank_break4.wav",
+	},
 })
 
 ix.container.Register("models/props_c17/cashregister01a.mdl", {
