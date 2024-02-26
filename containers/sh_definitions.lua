@@ -4,6 +4,8 @@
 		description = "A simple wooden create.",
 		width = 4,
 		height = 4,
+		breakable = true,
+		health = 100,
 		locksound = "",
 		opensound = ""
 	})
