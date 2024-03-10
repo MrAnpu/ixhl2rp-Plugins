@@ -71,10 +71,6 @@ function SWEP:Initialize()
 	self.lastHand = 0
 	self.maxHoldDistanceSquared = self.maxHoldDistance ^ 2
 	self.heldObjectAngle = Angle(angle_zero)
-
-	if CLIENT then
-		self:GhostProp("models/props_junk/PopCan01a.mdl")
-	end
 end
 
 if (CLIENT) then
@@ -151,19 +147,6 @@ function SWEP:Think()
 		return
 	end
 
-    if IsValid(self.heldEntity) then
-        local tr = self:GetOwner():GetEyeTrace()
-        local hitPos = tr.HitPos
-
-        -- Obtain the height of the entity's model
-        local min, max = self.heldEntity:OBBMins(), self.heldEntity:OBBMaxs()
-        local height = max.z - min.z
-
-        -- Adjust spawn position to be above ground based on the model's height
-        local spawnPos = hitPos + Vector(0, 0, height / 2)
-
-	end
-
 	if (CLIENT) then
 		local viewModel = self:GetOwner():GetViewModel()
 
@@ -171,14 +154,21 @@ function SWEP:Think()
 			viewModel:SetPlaybackRate(1)
 		end
 
-		if (self:IsHoldingObject()) then
-			if (IsValid(self.ghostProp)) then
-				self.ghostProp:SetPos(SpawnPos)
-				self.ghostProp:SetAngles(Angle(0, self.Owner:GetAngles().y, 0))
-			else
-				self:GhostProp()
-
-			end
+		if IsValid(self.ghostProp) then
+			local tr = self:GetOwner():GetEyeTrace()
+	
+			-- Determine the model height of the ghostProp
+			local modelHeight = self.ghostProp:OBBMaxs().z - self.ghostProp:OBBMins().z
+	
+			-- Calculate the new position, adjusting for half the model's height
+			-- This centers the model on the hit surface
+			local newPos = tr.HitPos + Vector(0, 0, modelHeight / 2)
+	
+			self.ghostProp:SetPos(newPos)
+			self.ghostProp:SetAngles(Angle(0, self:GetOwner():GetAngles().y, 0))
+			--self.ghostProp:SetModel(self.heldEntity:GetModel())
+		else
+			self:GhostProp()
 		end
 	else
 		if (self:IsHoldingObject()) then
@@ -262,7 +252,7 @@ function SWEP:PickupObject(entity)
     self:GetOwner():SetNWEntity("ixHeldEntity", entity) -- Networked for clients
 
     if CLIENT then
-        self:GhostProp(self.heldEntity:GetModel())
+        self:GhostProp()
     end
 
 	local trace = self:GetOwner():GetEyeTrace()
@@ -273,18 +263,19 @@ function SWEP:PickupObject(entity)
 	end
 end
 
-function SWEP:GhostProp(model)
-	--if (IsValid(self.ghostProp)) then 
-	--	self.ghostProp:Remove() 
-	--end
+function SWEP:GhostProp()
+	if (IsValid(self.ghostProp)) then 
+		self.ghostProp:Remove() 
+	end
 	print("test")
 	self.ghostProp = ents.CreateClientProp()
-	self.ghostProp:SetModel(model)
+	self.ghostProp:SetModel(self.heldEntity:GetModel())
 	self.ghostProp:SetMaterial("models/wireframe")
 	self.ghostProp:Spawn()
 	self.ghostProp:Activate()
 	self.ghostProp:SetParent(self.Owner)
 	self.ghostProp:SetRenderMode(RENDERMODE_TRANSALPHA)
+	print(self.ghostProp:GetModel())
 end
 
 
@@ -306,7 +297,6 @@ function SWEP:DropObject(bThrow)
     self.heldEntity:SetParent(nil) -- Unparent
     self.heldEntity:SetPos(spawnPos) -- Adjusted spawn position
     self.heldEntity:SetAngles(Angle(0, self.Owner:GetAngles().y, 0))
-
 
     if IsValid(physics) then
         physics:EnableMotion(true) -- Re-enable physics
