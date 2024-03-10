@@ -154,22 +154,31 @@ function SWEP:Think()
 			viewModel:SetPlaybackRate(1)
 		end
 
-		if IsValid(self.ghostProp) then
-			local tr = self:GetOwner():GetEyeTrace()
-	
-			-- Determine the model height of the ghostProp
-			local modelHeight = self.ghostProp:OBBMaxs().z - self.ghostProp:OBBMins().z
-	
-			-- Calculate the new position, adjusting for half the model's height
-			-- This centers the model on the hit surface
-			local newPos = tr.HitPos + Vector(0, 0, modelHeight / 2)
-	
-			self.ghostProp:SetPos(newPos)
-			self.ghostProp:SetAngles(Angle(0, self:GetOwner():GetAngles().y, 0))
-			--self.ghostProp:SetModel(self.heldEntity:GetModel())
-		else
-			self:GhostProp()
-		end
+        if IsValid(self:GetOwner()) and self:IsHoldingObject() then
+            -- If holding an object and the ghostProp exists, update its model and position
+            if not IsValid(self.ghostProp) then
+                -- Create ghostProp if it doesn't exist
+                self.ghostProp = ClientsideModel(self.heldEntity:GetModel(), RENDERGROUP_BOTH)
+                self.ghostProp:SetRenderMode(RENDERMODE_TRANSALPHA)
+                self.ghostProp:SetColor(Color(255, 255, 255, 150)) -- Semi-transparent
+            else
+                -- Update ghostProp model if it's different from the heldEntity's model
+                if self.ghostProp:GetModel() ~= self.heldEntity:GetModel() then
+                    self.ghostProp:SetModel(self.heldEntity:GetModel())
+                end
+            end
+
+            local tr = self:GetOwner():GetEyeTrace()
+            local modelHeight = self.ghostProp:OBBMaxs().z - self.ghostProp:OBBMins().z
+            local newPos = tr.HitPos + Vector(0, 0, modelHeight / 2)
+            
+            self.ghostProp:SetPos(newPos)
+            self.ghostProp:SetAngles(Angle(0, self:GetOwner():GetAngles().y, 0))
+        elseif IsValid(self.ghostProp) then
+            -- Remove the ghostProp when not holding an object
+            self.ghostProp:Remove()
+            self.ghostProp = nil
+        end
 	else
 		if (self:IsHoldingObject()) then
 
@@ -264,18 +273,27 @@ function SWEP:PickupObject(entity)
 end
 
 function SWEP:GhostProp()
-	if (IsValid(self.ghostProp)) then 
-		self.ghostProp:Remove() 
-	end
-	print("test")
-	self.ghostProp = ents.CreateClientProp()
-	self.ghostProp:SetModel(self.heldEntity:GetModel())
-	self.ghostProp:SetMaterial("models/wireframe")
-	self.ghostProp:Spawn()
-	self.ghostProp:Activate()
-	self.ghostProp:SetParent(self.Owner)
-	self.ghostProp:SetRenderMode(RENDERMODE_TRANSALPHA)
-	print(self.ghostProp:GetModel())
+    -- Ensure heldEntity is valid before proceeding
+    if not IsValid(self.heldEntity) then
+        print("Error: heldEntity is not valid.")
+        return
+    end
+
+    -- Remove existing ghostProp if it exists
+    if IsValid(self.ghostProp) then 
+        self.ghostProp:Remove() 
+    end
+
+    -- Create a new ghostProp with the model of the held entity
+    self.ghostProp = ClientsideModel(self.heldEntity:GetModel(), RENDERGROUP_BOTH)
+    self.ghostProp:SetMaterial("models/wireframe")
+    self.ghostProp:SetRenderMode(RENDERMODE_TRANSALPHA)
+    self.ghostProp:SetColor(Color(255, 255, 255, 100)) -- Example: semi-transparent
+
+    -- Optionally, set ghostProp to not collide with anything
+    self.ghostProp:SetCollisionGroup(COLLISION_GROUP_IN_VEHICLE)
+
+    print("GhostProp model:", self.ghostProp:GetModel())
 end
 
 
