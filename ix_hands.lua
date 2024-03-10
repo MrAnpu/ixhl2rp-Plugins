@@ -53,7 +53,7 @@ SWEP.KnockViewPunchAngle = Angle(-1.3, 1.8, 0)
 SWEP.FireWhenLowered = true
 SWEP.HoldType = "fist"
 
-SWEP.holdDistance = 64
+SWEP.holdDistance = 100 -- its actually a drop distance 
 SWEP.maxHoldDistance = 96 -- how far away the held object is allowed to travel before forcefully dropping
 SWEP.maxHoldStress = 4000 -- how much stress the held object can undergo before forcefully dropping
 
@@ -156,25 +156,44 @@ function SWEP:Think()
 
 		if self:GetOwner():GetLocalVar("bIsHoldingObject", true) then
 
-			if (IsValid(self.ghostProp)) then
-			
-				local tr = self:GetOwner():GetEyeTrace()
-
-				-- Determine the model height of the ghostProp
-				local modelHeight = self.ghostProp:OBBMaxs().z - self.ghostProp:OBBMins().z
-		
-				-- Calculate the new position, adjusting for half the model's height
-				-- This centers the model on the hit surface
-				local newPos = tr.HitPos + Vector(0, 0, modelHeight / 2)
-		
-				self.ghostProp:SetPos(newPos)
-				self.ghostProp:SetAngles(Angle(0, self:GetOwner():GetAngles().y, 0))
+			if IsValid(self.ghostProp) then
+				local tr = util.TraceLine({
+					start = self:GetOwner():GetShootPos(),
+					endpos = self:GetOwner():GetShootPos() + self:GetOwner():GetAimVector() * self.holdDistance,
+					filter = function(ent) if ent != self:GetOwner() then return true end end
+				})
 	
+				local hitPos = tr.HitPos
+				local hitNormal = tr.HitNormal
+	
+				-- Update the ghost prop's model to match the held entity's model, if available and different
+				if IsValid(self.heldEntity) and self.ghostProp:GetModel() ~= self.heldEntity:GetModel() then
+					self.ghostProp:SetModel(self.heldEntity:GetModel())
+				end
+	
+				-- Use OBB to adjust position so the ghost prop's base aligns with the surface
+				local model = self.ghostProp:GetModel()
+				local mins, maxs = self.ghostProp:GetModelBounds()
+	
+				-- Calculate the offset needed to position the model correctly based on its bounding box
+				local offset = hitPos + hitNormal * (maxs.z - mins.z) * 0.5
+	
+				self.ghostProp:SetPos(offset)
+				--self.ghostProp:SetAngles(Angle(0, self:GetOwner():EyeAngles().y, 0))
+				self.ghostProp:SetAngles(self.heldObjectAngle)
+	
+				-- Optionally, you can make the ghost prop follow the surface normal
+				-- local angleNormal = hitNormal:Angle()
+				-- local newAngles = Angle(0, self:GetOwner():EyeAngles().y, 0)
+				-- newAngles:RotateAroundAxis(angleNormal:Right(), -90)
+				-- self.ghostProp:SetAngles(newAngles)
 			else
 				self:GhostProp()
 			end
         else
-			self.ghostProp:Remove()
+			if (IsValid(self.ghostProp)) then
+				self.ghostProp:Remove()
+			end
 		end
 	else
 		if (self:IsHoldingObject()) then
@@ -193,6 +212,18 @@ function SWEP:Think()
 				return
 			end
 
+			local currentPlayerAngles = self:GetOwner():EyeAngles()
+			local client = self:GetOwner()
+
+			if (client:KeyDown(IN_ATTACK2)) then
+				local cmd = client:GetCurrentCommand()
+				self.heldObjectAngle:RotateAroundAxis(currentPlayerAngles:Forward(), cmd:GetMouseX() / 15)
+				self.heldObjectAngle:RotateAroundAxis(currentPlayerAngles:Right(), cmd:GetMouseY() / 15)
+			end
+
+			self.lastPlayerAngles = self.lastPlayerAngles or currentPlayerAngles
+			self.heldObjectAngle.y = self.heldObjectAngle.y - math.AngleDifference(self.lastPlayerAngles.y, currentPlayerAngles.y)
+			self.lastPlayerAngles = currentPlayerAngles
 		end
 		-- Prevents the camera from getting stuck when the object that the client is holding gets deleted.
 		if(!IsValid(self.heldEntity) and self:GetOwner():GetLocalVar("bIsHoldingObject", true)) then
@@ -234,6 +265,8 @@ function SWEP:PickupObject(entity)
 
 	entity.ixHeldOwner = self:GetOwner()
 	entity:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+
+	self.heldObjectAngle = entity:GetAngles()
 
     self.heldEntity = entity
     self.heldEntity:SetParent(self.Owner, attachmentIndex)
@@ -284,24 +317,47 @@ function SWEP:GhostProp()
 	end
 end
 
+--[[
+local tr = self.Owner:GetEyeTrace()
+local hitPos = tr.HitPos
+
+-- Obtain the height of the entity's model
+local min, max = self.heldEntity:OBBMins(), self.heldEntity:OBBMaxs()
+local height = max.z - min.z
+
+-- Adjust spawn position to be above ground based on the model's height
+local spawnPos = hitPos + Vector(0, 0, height / 2)
+
+self.heldEntity:SetParent(nil) -- Unparent
+self.heldEntity:SetPos(spawnPos) -- Adjusted spawn position
+self.heldEntity:SetAngles(Angle(0, self.Owner:GetAngles().y, 0))
+]]
+
+
 function SWEP:DropObject(bThrow)
     if not IsValid(self.heldEntity) then return end
 
     local physics = self.heldEntity:GetPhysicsObject()
 
-    local tr = self.Owner:GetEyeTrace()
-    local hitPos = tr.HitPos
+	local tr = util.TraceLine({
+		start = self:GetOwner():GetShootPos(),
+		endpos = self:GetOwner():GetShootPos() + self:GetOwner():GetAimVector() * self.holdDistance,
+		filter = function(ent) if ent != self:GetOwner() then return true end end
+	})
 
-    -- Obtain the height of the entity's model
-    local min, max = self.heldEntity:OBBMins(), self.heldEntity:OBBMaxs()
-    local height = max.z - min.z
+	local hitPos = tr.HitPos
+	local hitNormal = tr.HitNormal
 
-    -- Adjust spawn position to be above ground based on the model's height
-    local spawnPos = hitPos + Vector(0, 0, height / 2)
+	-- Use OBB to adjust position so the ghost prop's base aligns with the surface
+	local model = self.heldEntity:GetModel()
+	local mins, maxs = self.heldEntity:GetModelBounds()
 
-    self.heldEntity:SetParent(nil) -- Unparent
-    self.heldEntity:SetPos(spawnPos) -- Adjusted spawn position
-    self.heldEntity:SetAngles(Angle(0, self.Owner:GetAngles().y, 0))
+	-- Calculate the offset needed to position the model correctly based on its bounding box
+	local offset = hitPos + hitNormal * (maxs.z - mins.z) * 0.5
+
+	self.heldEntity:SetParent(nil) -- Unparent
+	self.heldEntity:SetPos(offset)
+	self.heldEntity:SetAngles(self.heldObjectAngle) --Angle(0, self:GetOwner():EyeAngles().y, 0) 
 
     if IsValid(physics) then
         physics:EnableMotion(true) -- Re-enable physics
