@@ -73,7 +73,7 @@ function SWEP:Initialize()
 	self.heldObjectAngle = Angle(angle_zero)
 
 	if CLIENT then
-		self:GhostProp()
+		self:GhostProp("models/props_junk/PopCan01a.mdl")
 	end
 end
 
@@ -151,8 +151,18 @@ function SWEP:Think()
 		return
 	end
 
-	local tr = self.Owner:GetEyeTrace()
-	local SpawnPos = tr.HitPos - tr.HitNormal / 8
+    if IsValid(self.heldEntity) then
+        local tr = self:GetOwner():GetEyeTrace()
+        local hitPos = tr.HitPos
+
+        -- Obtain the height of the entity's model
+        local min, max = self.heldEntity:OBBMins(), self.heldEntity:OBBMaxs()
+        local height = max.z - min.z
+
+        -- Adjust spawn position to be above ground based on the model's height
+        local spawnPos = hitPos + Vector(0, 0, height / 2)
+
+	end
 
 	if (CLIENT) then
 		local viewModel = self:GetOwner():GetViewModel()
@@ -161,16 +171,18 @@ function SWEP:Think()
 			viewModel:SetPlaybackRate(1)
 		end
 
-		if (IsValid(self.ghostProp)) then
-			
-			self.ghostProp:SetPos(SpawnPos )
-			self.ghostProp:SetAngles(Angle(0, self.Owner:GetAngles().y, 0))
-	
-		else
-			self:GhostProp()
+		if (self:IsHoldingObject()) then
+			if (IsValid(self.ghostProp)) then
+				self.ghostProp:SetPos(SpawnPos)
+				self.ghostProp:SetAngles(Angle(0, self.Owner:GetAngles().y, 0))
+			else
+				self:GhostProp()
+
+			end
 		end
 	else
 		if (self:IsHoldingObject()) then
+
 			local physics = self:GetHeldPhysicsObject()
 			local bIsRagdoll = self.heldEntity:IsRagdoll()
 			local holdDistance = bIsRagdoll and self.holdDistance * 0.5 or self.holdDistance
@@ -234,6 +246,7 @@ function SWEP:PickupObject(entity)
     local attachment = self.Owner:GetAttachment(attachmentIndex)
     if not attachment then return end
 
+	entity.ixHeldOwner = self:GetOwner()
 	entity:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 
     self.heldEntity = entity
@@ -261,9 +274,12 @@ function SWEP:PickupObject(entity)
 end
 
 function SWEP:GhostProp(model)
-	if (IsValid(self.ghostProp)) then self.ghostProp:Remove() end
+	--if (IsValid(self.ghostProp)) then 
+	--	self.ghostProp:Remove() 
+	--end
+	print("test")
 	self.ghostProp = ents.CreateClientProp()
-	self.ghostProp:SetModel("models/props_junk/PropaneCanister001a.mdl")
+	self.ghostProp:SetModel(model)
 	self.ghostProp:SetMaterial("models/wireframe")
 	self.ghostProp:Spawn()
 	self.ghostProp:Activate()
@@ -277,18 +293,25 @@ function SWEP:DropObject(bThrow)
 
     local physics = self.heldEntity:GetPhysicsObject()
 
-	local tr = self.Owner:GetEyeTrace()
-	local SpawnPos = tr.HitPos - tr.HitNormal / 2
+    local tr = self.Owner:GetEyeTrace()
+    local hitPos = tr.HitPos
+
+    -- Obtain the height of the entity's model
+    local min, max = self.heldEntity:OBBMins(), self.heldEntity:OBBMaxs()
+    local height = max.z - min.z
+
+    -- Adjust spawn position to be above ground based on the model's height
+    local spawnPos = hitPos + Vector(0, 0, height / 2)
 
     self.heldEntity:SetParent(nil) -- Unparent
-    self.heldEntity:SetPos(SpawnPos) -- Adjust if necessary
-	self.heldEntity:SetAngles(Angle(0, 90, 0)) -- Adjust if necessary
+    self.heldEntity:SetPos(spawnPos) -- Adjusted spawn position
+    self.heldEntity:SetAngles(Angle(0, self.Owner:GetAngles().y, 0))
 
 
     if IsValid(physics) then
         physics:EnableMotion(true) -- Re-enable physics
         physics:Wake()
-        physics:ApplyForceCenter(self.Owner:GetAimVector() * physics:GetMass() * 200) -- Example force, adjust as needed
+        --physics:ApplyForceCenter(self.Owner:GetAimVector() * physics:GetMass() * 200) -- Example force, adjust as needed
     end
 
     self:GetOwner():SetNWEntity("ixHeldEntity", nil) -- Clear the networked entity
