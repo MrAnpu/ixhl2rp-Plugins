@@ -154,31 +154,28 @@ function SWEP:Think()
 			viewModel:SetPlaybackRate(1)
 		end
 
-        if IsValid(self:GetOwner()) and self:IsHoldingObject() then
-            -- If holding an object and the ghostProp exists, update its model and position
-            if not IsValid(self.ghostProp) then
-                -- Create ghostProp if it doesn't exist
-                self.ghostProp = ClientsideModel(self.heldEntity:GetModel(), RENDERGROUP_BOTH)
-                self.ghostProp:SetRenderMode(RENDERMODE_TRANSALPHA)
-                self.ghostProp:SetColor(Color(255, 255, 255, 150)) -- Semi-transparent
-            else
-                -- Update ghostProp model if it's different from the heldEntity's model
-                if self.ghostProp:GetModel() ~= self.heldEntity:GetModel() then
-                    self.ghostProp:SetModel(self.heldEntity:GetModel())
-                end
-            end
+		if self:GetOwner():GetLocalVar("bIsHoldingObject", true) then
 
-            local tr = self:GetOwner():GetEyeTrace()
-            local modelHeight = self.ghostProp:OBBMaxs().z - self.ghostProp:OBBMins().z
-            local newPos = tr.HitPos + Vector(0, 0, modelHeight / 2)
-            
-            self.ghostProp:SetPos(newPos)
-            self.ghostProp:SetAngles(Angle(0, self:GetOwner():GetAngles().y, 0))
-        elseif IsValid(self.ghostProp) then
-            -- Remove the ghostProp when not holding an object
-            self.ghostProp:Remove()
-            self.ghostProp = nil
-        end
+			if (IsValid(self.ghostProp)) then
+			
+				local tr = self:GetOwner():GetEyeTrace()
+
+				-- Determine the model height of the ghostProp
+				local modelHeight = self.ghostProp:OBBMaxs().z - self.ghostProp:OBBMins().z
+		
+				-- Calculate the new position, adjusting for half the model's height
+				-- This centers the model on the hit surface
+				local newPos = tr.HitPos + Vector(0, 0, modelHeight / 2)
+		
+				self.ghostProp:SetPos(newPos)
+				self.ghostProp:SetAngles(Angle(0, self:GetOwner():GetAngles().y, 0))
+	
+			else
+				self:GhostProp()
+			end
+        else
+			self.ghostProp:Remove()
+		end
 	else
 		if (self:IsHoldingObject()) then
 
@@ -204,14 +201,6 @@ function SWEP:Think()
 	end
 end
 
-function SWEP:PreDrawViewModel()
-	if (CLIENT) then
-		if (!IsValid(self.ghostProp)) then
-			self:GhostProp()
-		end
-	end
-end
-
 function SWEP:GetHeldPhysicsObject()
 	return IsValid(self.heldEntity) and self.heldEntity:GetPhysicsObject() or nil
 end
@@ -227,9 +216,7 @@ function SWEP:CanHoldObject(entity)
 end
 
 function SWEP:IsHoldingObject()
-	return IsValid(self.heldEntity) and
-		IsValid(self.heldEntity.ixHeldOwner) and
-		self.heldEntity.ixHeldOwner == self:GetOwner()
+	return IsValid(self.heldEntity)
 end
 
 function SWEP:PickupObject(entity)
@@ -274,28 +261,28 @@ end
 
 function SWEP:GhostProp()
     -- Ensure heldEntity is valid before proceeding
-    if not IsValid(self.heldEntity) then
-        print("Error: heldEntity is not valid.")
-        return
-    end
+	if self:GetOwner():GetLocalVar("bIsHoldingObject", true) then
+		local entity = self:GetOwner():GetNWEntity("ixHeldEntity")
 
-    -- Remove existing ghostProp if it exists
-    if IsValid(self.ghostProp) then 
-        self.ghostProp:Remove() 
-    end
+		if not IsValid(entity) then
+			return
+		end
+		
+		-- Remove existing ghostProp if it exists
+		if IsValid(self.ghostProp) then 
+			self.ghostProp:Remove() 
+		end
 
-    -- Create a new ghostProp with the model of the held entity
-    self.ghostProp = ClientsideModel(self.heldEntity:GetModel(), RENDERGROUP_BOTH)
-    self.ghostProp:SetMaterial("models/wireframe")
-    self.ghostProp:SetRenderMode(RENDERMODE_TRANSALPHA)
-    self.ghostProp:SetColor(Color(255, 255, 255, 100)) -- Example: semi-transparent
+		-- Create a new ghostProp with the model of the held entity
+		self.ghostProp = ClientsideModel(entity:GetModel(), RENDERGROUP_BOTH)
+		self.ghostProp:SetMaterial("models/wireframe")
+		self.ghostProp:SetRenderMode(RENDERMODE_TRANSALPHA)
+		self.ghostProp:SetColor(Color(255, 255, 255, 100)) -- Example: semi-transparent
 
-    -- Optionally, set ghostProp to not collide with anything
-    self.ghostProp:SetCollisionGroup(COLLISION_GROUP_IN_VEHICLE)
-
-    print("GhostProp model:", self.ghostProp:GetModel())
+		-- Optionally, set ghostProp to not collide with anything
+		self.ghostProp:SetCollisionGroup(COLLISION_GROUP_IN_VEHICLE)
+	end
 end
-
 
 function SWEP:DropObject(bThrow)
     if not IsValid(self.heldEntity) then return end
