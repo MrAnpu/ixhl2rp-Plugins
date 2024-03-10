@@ -63,6 +63,10 @@ SWEP.HandsUp = nil
 ACT_VM_FISTS_DRAW = 2
 ACT_VM_FISTS_HOLSTER = 1
 
+if SERVER then
+	util.AddNetworkString("UpdateHeldObjectAngle")
+end
+
 
 function SWEP:Initialize()
 	self:SetHoldType(self.HoldType)
@@ -166,10 +170,22 @@ function SWEP:Think()
 				local hitPos = tr.HitPos
 				local hitNormal = tr.HitNormal
 	
+				net.Receive("UpdateHeldObjectAngle", function()
+					local weapon = net.ReadEntity()
+					local angle = net.ReadAngle()
+					local model = net.ReadString()
+					
+					if IsValid(weapon) then
+						weapon.heldObjectAngle = angle
+						if IsValid(weapon.heldEntity) and weapon.ghostProp:GetModel() ~= weapon.heldEntity:GetModel() then
+							weapon.ghostProp:SetModel(model)
+						end
+						
+					end
+				end)
+
 				-- Update the ghost prop's model to match the held entity's model, if available and different
-				if IsValid(self.heldEntity) and self.ghostProp:GetModel() ~= self.heldEntity:GetModel() then
-					self.ghostProp:SetModel(self.heldEntity:GetModel())
-				end
+
 	
 				-- Use OBB to adjust position so the ghost prop's base aligns with the surface
 				local model = self.ghostProp:GetModel()
@@ -180,13 +196,8 @@ function SWEP:Think()
 	
 				self.ghostProp:SetPos(offset)
 				--self.ghostProp:SetAngles(Angle(0, self:GetOwner():EyeAngles().y, 0))
+
 				self.ghostProp:SetAngles(self.heldObjectAngle)
-	
-				-- Optionally, you can make the ghost prop follow the surface normal
-				-- local angleNormal = hitNormal:Angle()
-				-- local newAngles = Angle(0, self:GetOwner():EyeAngles().y, 0)
-				-- newAngles:RotateAroundAxis(angleNormal:Right(), -90)
-				-- self.ghostProp:SetAngles(newAngles)
 			else
 				self:GhostProp()
 			end
@@ -217,13 +228,29 @@ function SWEP:Think()
 
 			if (client:KeyDown(IN_ATTACK2)) then
 				local cmd = client:GetCurrentCommand()
-				self.heldObjectAngle:RotateAroundAxis(currentPlayerAngles:Forward(), cmd:GetMouseX() / 15)
-				self.heldObjectAngle:RotateAroundAxis(currentPlayerAngles:Right(), cmd:GetMouseY() / 15)
+				local rotateSpeedX = cmd:GetMouseX() / 10
+				local rotateSpeedY = cmd:GetMouseY() / 10
+			
+				-- Check if shift is held down
+				if client:KeyDown(IN_SPEED) then -- IN_SPEED is typically bound to the sprint key, which is Shift
+					-- Snap rotation by 15 degrees
+					rotateSpeedX = math.Round(rotateSpeedX / 10) * 5
+					rotateSpeedY = math.Round(rotateSpeedY / 10) * 5
+				end
+			
+				self.heldObjectAngle:RotateAroundAxis(currentPlayerAngles:Forward(), rotateSpeedX)
+				self.heldObjectAngle:RotateAroundAxis(currentPlayerAngles:Right(), rotateSpeedY)
 			end
 
 			self.lastPlayerAngles = self.lastPlayerAngles or currentPlayerAngles
 			self.heldObjectAngle.y = self.heldObjectAngle.y - math.AngleDifference(self.lastPlayerAngles.y, currentPlayerAngles.y)
 			self.lastPlayerAngles = currentPlayerAngles
+
+			net.Start("UpdateHeldObjectAngle")
+				net.WriteEntity(self)
+				net.WriteAngle(self.heldObjectAngle)
+				net.WriteString(self.heldEntity:GetModel())
+			net.Send(self:GetOwner())
 		end
 		-- Prevents the camera from getting stuck when the object that the client is holding gets deleted.
 		if(!IsValid(self.heldEntity) and self:GetOwner():GetLocalVar("bIsHoldingObject", true)) then
